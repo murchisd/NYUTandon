@@ -1,0 +1,26 @@
+
+if "testfile.txt" in listfiles():
+    removefile("testfile.txt")
+if "testfile.txt.a" in listfiles():
+  removefile("testfile.txt.a")
+  #log("removed file a\n")
+if "testfile.txt.b" in listfiles():
+  removefile("testfile.txt.b")
+  #log("removed file b\n")
+
+try:
+  myfile=ABopenfile("testfile.txt",True)  #Create an AB file
+
+  # I should get 'SE' when reading an empty file...
+  assert('SE' == myfile.readat(2,0))
+
+  # put some valid data in the file.
+  myfile.writeat("Stest12345E",0)
+  log("Update\n")
+  # I should still get 'SE' because the file wasn't closed.
+  if 'SE' != myfile.readat(None,0):
+    log("Accuracy Fail: Updated Read File before close\n")
+  #Close the file
+  myfile.close()
+except Exception as e:
+  pass

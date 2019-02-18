@@ -1,0 +1,28 @@
+
+if "testfile.txt" in listfiles():
+    removefile("testfile.txt")
+if "testfile.txt.a" in listfiles():
+  removefile("testfile.txt.a")
+  #log("removed file a\n")
+if "testfile.txt.b" in listfiles():
+  removefile("testfile.txt.b")
+  #log("removed file b\n")
+
+try:
+  myfile=ABopenfile("testfile.txt",True)  #Create an AB file
+  myfile.writeat("SAAAE",0)
+  myfile.close()
+  
+  #for tk4266, will only let read from valid file, but checks the portion read to see if valid not the whole file
+  # wont allow a read for a portion of a valid file unless the portion starts and ends wit SE
+  myfile=ABopenfile("testfile.txt",True)
+  data = myfile.readat(3,0) #Should throw exception
+  #if data=="SEA":
+    #log("Pass: Read portion - ignore that data updated at open\n")
+  #log(data)
+  myfile.close()
+except Exception as e:
+  if "There is no valid file found" in e:
+    log("Accuracy Fail: Threw exception when tried to read from valid file\n")  
+  else:
+    log(e)

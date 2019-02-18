@@ -1,0 +1,65 @@
+
+
+def create_true():
+  if "testfile.txt" in listfiles():
+    removefile("testfile.txt")
+  if "testfile.txt.a" in listfiles():
+    removefile("testfile.txt.a")
+    #log("removed file a\n")
+  if "testfile.txt.b" in listfiles():
+    removefile("testfile.txt.b")
+    #log("removed file b\n")
+  try:
+    myfile=ABopenfile("testfile.txt",True)  #Create an AB file
+
+    # put some valid data in the file.
+    myfile.writeat("Stest12345E",0)
+    myfile.close()
+    
+    #Testing if they write SE when create==True even if file already exists
+    myfile=ABopenfile("testfile.txt",True)
+    data =myfile.readat(None,0)
+    if data=='SEest12345E':
+      log("Accuracy Fail: Writes SE to existing file because create=True\n")
+    elif data=='SE':
+      log("Accuracy Fail: Didnt copy valid data from before to Read File when create=True\n")
+    #elif data=="Stest12345E":
+      #log("Pass: Retrieved valid file correctly\n")
+    
+    myfile.close()
+  except:
+    pass
+    #log("Error in create=True test\n")
+
+ 
+def create_false():
+  if "testfile.txt" in listfiles():
+    removefile("testfile.txt")
+  if "testfile.txt.a" in listfiles():
+    removefile("testfile.txt.a")
+    #log("removed file a\n")
+  if "testfile.txt.b" in listfiles():
+    removefile("testfile.txt.b")
+    #log("removed file b\n")
+  try:
+    myfile=ABopenfile("testfile.txt",True)  #Create an AB file
+
+    # put some valid data in the file.
+    myfile.writeat("Stest12345E",0)
+    myfile.close()
+    
+    #Testing if they open file at all when create is False
+    myfile=ABopenfile("testfile.txt",False)
+    if len(myfile.readat(None,0))==0:
+      log("Accuracy Fail: Open empty Read file when create is False\n")
+    
+    myfile.close()
+  except Exception as e:
+    if "ABFile instance has no attribute 'Afile'" in e:
+      log("Accuracy Fail: Doesnt open a Read file when create is False\n")
+    #else:
+      
+      #log(e)
+
+create_true()
+create_false()

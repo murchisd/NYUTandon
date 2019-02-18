@@ -1,0 +1,25 @@
+
+if "testfile.txt" in listfiles():
+    removefile("testfile.txt")
+if "testfile.txt.a" in listfiles():
+  removefile("testfile.txt.a")
+  #log("removed file a\n")
+if "testfile.txt.b" in listfiles():
+  removefile("testfile.txt.b")
+  #log("removed file b\n")
+
+try:
+  myfile=ABopenfile("testfile.txt",True)  #Create an AB file
+
+  #Test Large Write of valid data
+  myfile.writeat("S"+"A"*2048+"E",0)
+  myfile.close()
+  
+  myfile=ABopenfile("testfile.txt",True)
+  if myfile.readat(None,0)!="S"+"A"*2048+"E":
+    log("Accuracy Fail: Doesnt allow valid file over 2048\n")
+  
+  myfile.close()
+except:
+  pass
+  #log("Error in test\n")

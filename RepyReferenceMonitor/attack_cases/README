@@ -1,0 +1,28 @@
+README
+
+For the attacks I took a look at everyones source code and analyzed for vulnerabilities. I then created a set of Security and Accuracy tests. A Security test would try to have invalid data in main file on close, and an Accuracy test would test for any other bug that did not behave correctly for valid operations.
+
+I did not test for negative offset or seek errors because these should be handled by the REPY API. I also ran in to the problem that most reference monitors did not implement the basic functionality correctly. Some common issues I noticed were reference monitors would only open read and write file if he create flag was set to True, and they would always write 'SE' even if valid data already existed. Another issue was on close, the reference monitor would check if B was a valid file and then remove a if it was, but when the file was reopened they did not read from B or copy data to A. This meant you could write valid data, the reference monior would correctly keep the new valid file, but you would never be able to read from this file, even after close. This made it difficult to test any sort of attacks. 
+
+For the 3 reference monitors that tried to copy valid data to the Read files, I tried to find Security attacks.
+
+reference_monitor_<usrid> - string_over_2048.r2py
+                          - read_portion.r2py
+
+I could not find a "Security" attack for this one. However, it did not properly read portions of valid files and limited data to 2048 bytes.
+
+refernce_monitor_<usrid> - long_short_write.r2py
+
+<userid> used length variable to check first and last characters at close. Updates length on writeat wihout checking if offset + length is longer then current length. Allows attacker to set length to character in middle of string and write invalid data to main file on close.
+
+reference_monitor_<usrid> - race_condition.r2py
+
+** I did not follow the naming convention because I didnt want this to run with the other attacks - could cause infinite loop on other reference monitors**
+
+** Racing . . . should never reach over 200 "." if its does ctrl^C, and rerun
+
+<usrid> had a very different implentation than the other reference_monitors, but I think got the closest to actually implementing the functionality the assignment requested. For this I found a TOCTOU vulnerability in the writeat method. The writeat method will write to the B file, then check if it is valid, if it is valid it will then reread the B file and write to the A file. There is enough time to write invalid data after the check for valid data so that when B is reread it is reading invalid data, and updates A with this invalid data. A is assumed valid on close so after close the main file contains invalid data. 
+
+I used openfile to show that the main file had invalid data, not as part of the attack. The ABfile openfile implementation would create an empty Read File because the main file was not valid on open.   
+
+

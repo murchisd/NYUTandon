@@ -1,0 +1,179 @@
+"""
+This security layer inadequately handles A/B storage for files in RepyV2.
+
+
+
+Note:
+    This security layer uses encasementlib.r2py, restrictions.default, repy.py and Python
+    Also you need to give it an application to run.
+    python repy.py restrictions.default encasementlib.r2py [security_layer].r2py [attack_program].r2py 
+    
+    """ 
+TYPE="type"
+ARGS="args"
+RETURN="return"
+EXCP="exceptions"
+TARGET="target"
+FUNC="func"
+OBJC="objc"
+
+
+
+class ABFile():
+  def __init__(self,filename,create):
+    # globals
+    mycontext['debug'] = False
+    #No global lock because openfile should throw FileInUseError if already open and we cant change removefile where this would be useful
+
+    # local (per object) reference to the underlying file
+    #Use per object lock so 2 threads cannot perform ops at same time
+    self.lock = createlock()
+	  
+    #openfile will handle naming convetion errors dont need to check on own
+    self.filename=filename
+    # A file is most recent version
+    self.Afn = filename+'.a'
+    self.Bfn = filename+'.b'
+    #Added file to track version, didt want to count versions using regex and listfiles()
+    self.Vfn = filename+'.ver'
+    self.start='' # Used to track B file, start as invalid
+    self.end='' #**TA clarified do not need to worry about file manipulation outside of ABfile class
+    self.len=0
+    self.ver=0
+    self.lock.acquire(True)
+    try:   
+      
+      #Check if B file exists - 2 Cases exit on both
+      #1) ABfile already open with same file name, since b removed at close()
+      #2) .b file created independent of ABFile class, dont want to overwrite 
+      if self.Bfn in listfiles():
+        #("B file exists\n") 
+        self.lock.release()
+        raise Exception("B file Exists")
+        #return 
+      
+      #Simplified check because no longer copy a into b ever
+      self.Afile = openfile(self.Afn,create)
+      if len(self.Afile.readat(None,0))==0:
+          self.Afile.writeat('SE',0)
+      self.Bfile = openfile(self.Bfn,True)
+      self.Vfile = openfile(self.Vfn,True)
+      if(len(self.Vfile.readat(None,0))>0):
+        self.ver += int(self.Vfile.readat(None,0))
+      self.archfn = filename+'.'+str(self.ver)
+
+    except Exception as e:
+      # Need to be able to raise exceptions here other wise will return an object
+      self.lock.release()
+      raise Exception(e)
+    self.lock.release()
+
+  def writeat(self,data,offset):
+    # Write the requested data to the B file using the sandbox's writeat call
+    # writeat should handle edge cases (negative offset, offset past file length,etc)
+    #******* Aquire Lock********
+    #log("Write: Aquiring Lock\n")
+    self.lock.acquire(True)
+    #Stops self.len from updating if exception thrown 
+    tmplen=self.len
+    try:
+      if offset==0:
+        self.start=data[0]
+      if offset+len(data) > self.len-1:
+        tmplen = offset+len(data)
+        self.end=data[-1]
+      self.Bfile.writeat(data,offset)
+    except Exception as e:
+      #self.lock.release()
+      tmplen=self.len
+      pass
+      #raise e
+
+    self.len=tmplen
+    self.lock.release()
+
+  def readat(self,bytes,offset):
+    # Read from the A file using the sandbox's readat...
+    # readat should handle edge cases
+    #********** Aquire Lock **********
+    #log("Read: Aquiring Lock\n")
+    self.lock.acquire(True)
+    try:
+      data=self.Afile.readat(bytes,offset)
+      #release lock
+      self.lock.release()
+      return data
+    except Exception as e:
+      #release lock
+      self.lock.release()
+      return ''
+      #raise e
+  
+  #After TA discussion dont think need this, didnt get confirmation though so adding
+  #Not allowing reading at an offset, read whole file for old versions always 
+  def readold(self,ver):
+    # Read from the A file using the sandbox's readat...
+    # readat should handle edge cases
+    #********** Aquire Lock **********
+    #log("Read: Aquiring Lock\n")
+    self.lock.acquire(True)
+    try:
+      if ver < self.ver and ver >0:
+        oldFile = openfile(self.filename+'.'+str(ver),False)
+        data=self.oldFile.readat(None,0)
+        oldFile.close()
+        return data
+      else:
+        return ''
+    except Exception as e:
+      return ''
+      #raise e
+    finally:
+      self.lock.release()
+
+  def close(self):
+    self.lock.acquire(True)
+    try:
+      #This should only be set if a write was performed
+      if self.start=='S' and self.end=='E':
+        if self.ver!=0:
+          archive = openfile(self.archfn,True)
+          archive.writeat(self.Afile.readat(None,0),0)
+          archive.close()
+        #Since write is on empty file remove A to clear it
+        self.Afile.close()
+        removefile(self.Afn)
+        self.Afile = openfile(self.Afn,True)
+        self.Afile.writeat(self.Bfile.readat(None,0),0)
+        self.Vfile.writeat(str(self.ver+1),0)
+        
+      self.Bfile.close()
+      removefile(self.Bfn)
+      self.Afile.close()
+      self.Vfile.close()
+    except Exception as e:
+      pass
+    finally:
+      self.lock.release()
+
+def ABopenfile(filename, create):
+  return ABFile(filename,create)
+
+
+
+
+# The code here sets up type checking and variable hiding for you.  You
+# should not need to change anything below here.
+sec_file_def = {"obj-type":ABFile,
+                "name":"ABFile",
+                "writeat":{"type":"func","args":(str,(int,long)),"exceptions":Exception,"return":(int,type(None)),"target":ABFile.writeat},
+                "readat":{"type":"func","args":((int,long,type(None)),(int,long)),"exceptions":Exception,"return":str,"target":ABFile.readat},
+                "close":{"type":"func","args":None,"exceptions":None,"return":(bool,type(None)),"target":ABFile.close},
+                "readold":{"type":"func","args":((int,long),),"exceptions":Exception,"return":str,"target":ABFile.readold}
+                
+           }
+
+CHILD_CONTEXT_DEF["ABopenfile"] = {TYPE:OBJC,ARGS:(str,bool),EXCP:Exception,RETURN:sec_file_def,TARGET:ABopenfile}
+
+# Execute the user code
+secure_dispatch_module()

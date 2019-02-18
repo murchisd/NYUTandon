@@ -1,0 +1,57 @@
+#<usrid>attack
+
+#Possible bug if create is set to true and file already exists (Will overwrite existing - REPY doc doesnt do this)
+#   -Probably still coudlnt write invalid file so not necesarily an attack
+
+#From comments - logic is to update the .a file with .b on any write where valid, from REPY example this shoudl not be done until file close - doesnt seem like valid attack just difference in implementation
+
+#With writeat possible TOCTOU vuln, could possibly get invalid data in A, a is written to master without check at close so could get invalid data in master file this way 
+
+#import time
+
+def threadone(myfile):
+  # New File Operation
+  def write_valid():
+    while mycontext['done']==0:
+      myfile.writeat('S'+'B'*10000000+'E',0)
+      if myfile.readat(1,0)=='A' or myfile.readat(1,10000001)=='A'
+        mycontext['done']=1
+        myfile.close()
+        log('Check testfile.txt')
+        exitall()    
+  return write_valid
+  #except RepyArgumentError:
+  #  pass
+  #finally:
+
+
+def threadtwo(myfile):
+  def write_invalid():
+    while mycontext['done']==0:
+      myfile.writeat("A",0)
+      myfile.writeat("A",10000001)
+  return write_invalid
+
+#Stop threads if need to
+mycontext['done']=0
+if "testfile.txt" in listfiles():
+  removefile("testfile.txt")
+
+myfile = ABopenfile("testfile.txt", True)
+#Large File to slow read time for TOCTOU
+#log('Write')
+myfile.writeat('S'+'B'*10000000+'E',0)
+#start=time.time()
+#log('Read')
+assert(myfile.readat(None,0)=='S'+'B'*10000000+'E')
+
+#log(time.time()-start)
+t2 = threadtwo(myfile)
+t1 = threadone(myfile)
+createthread(t1)
+createthread(t2)
+
+#log(tmp.readat(None,0))
+#log("test")
+#sleep(1)
+#exitall()
